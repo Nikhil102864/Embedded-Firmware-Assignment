@@ -1,0 +1,38 @@
+#include <stdint.h>
+
+// Global variables
+uint8_t g_ReadDIpinSts = 0;   // Real-time status of digital input pins
+uint8_t g_AppDIpinSts = 0;    // Stable status of digital input pins
+uint8_t counter[8] = {0};     // Counter for each digital input pin
+
+// ISR function prototype
+int ISR_DIsampling() {
+    uint8_t currentStatus = g_ReadDIpinSts;  // Read the real-time status
+    uint8_t i;
+    
+    for (i = 0; i < 8; i++) {
+        uint8_t currentPinStatus = (currentStatus >> i) & 0x01;     // Extract the status of the i-th pin
+        uint8_t stablePinStatus = (g_AppDIpinSts >> i) & 0x01;      // Extract the stable status of the i-th pin
+        
+        if (currentPinStatus == stablePinStatus) {
+            // Status is consistent
+            if (counter[i] < 10) {
+                counter[i]++;
+            }
+        } else {
+            // Status is inconsistent
+            counter[i] = 1;
+        }
+        
+        // Update the stable status if the pin state is consistent for 10 consecutive ISR calls
+        if (counter[i] == 10) {
+            if (currentPinStatus) {
+                g_AppDIpinSts |= (1 << i);  // Set the bit
+            } else {
+                g_AppDIpinSts &= ~(1 << i); // Clear the bit
+            }
+        }
+    }
+    
+    return 0;
+}
